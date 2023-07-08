@@ -5,7 +5,7 @@
     "main": "index.ts",
     "type": "module",
     "scripts": {
-        "start": "npm run build && node ./dist/index.js",
+        "start": "cross-env ts-node server/httpServer.ts && cross-env ts-node server/webSocketServer.ts",
         "start:dev": "nodemon",
         "test": "echo \"Error: no test specified\" && exit 1",
         "build": "tsc",
@@ -15,6 +15,9 @@
     "keywords": [],
     "license": "ISC",
     "devDependencies": {
+        "@types/dotenv": "^8.2.0",
+        "@types/node": "^20.4.1",
+        "@types/ws": "^8.5.5",
         "nodemon": "^2.0.22"
     },
     "dependencies": {
