@@ -2,7 +2,6 @@
     "compilerOptions": {
         "module": "commonjs",
         "target": "es6",
-        "types": ["node", "dotenv"],
         "resolveJsonModule": true,
         "esModuleInterop": true,
         "rootDir": "./src",
