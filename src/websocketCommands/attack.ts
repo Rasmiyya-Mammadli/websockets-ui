@@ -1,62 +1,60 @@
+import { Server as WebSocketServer, WebSocket } from 'ws';
 import { roomsDB } from "../db/rooms/room";
 import { IRoomPlayers, TAttack } from "../db/rooms/roomModel";
+import attack from "../response/attack";
+import turn from "../response/turn";
+import { WebSocketWithId } from "../server/webSocketserver";
+import singlePlayAttack from "./singleAttack";
+import win from "./winner";
+import reAttack from './reAttack';
 
-export const attack = (
-  roomId: number,
-  userId: number,
-  x: number,
-  y: number
-): { position: { x: number; y: number }; currentPlayer: number; status: TAttack } | undefined => {
-  const room = roomsDB.rooms.get(roomId);
-  if (!room) return undefined;
+export const attackHandler = (
+  data: string,
+  wss: WebSocketServer,
+  ws: WebSocket,
+  random?: boolean,
+): void => {
+  const { gameId, x, y, indexPlayer } = JSON.parse(data);
+  const room = roomsDB.rooms.get(gameId) as IRoomPlayers[];
+  const currentUser = room.find((e) => e.index === indexPlayer) as IRoomPlayers;
+  if (!currentUser.isTurn) return;
 
-  const currentPlayer = room.find((user) => user.index === userId);
-  const enemyPlayer = room.find((user) => user.index !== userId);
-  if (!currentPlayer || !enemyPlayer) return undefined;
+  let pos: string;
+  if (random) {
+    const variations = [...(currentUser.attackVariations as Set<string>)];
+    const item = Math.floor(Math.random() * variations.length);
+    pos = variations[item] as string;
+  } else {
+    pos = JSON.stringify({ x, y });
+  }
 
-  const position = { x, y };
-  const status = performAttack(enemyPlayer, position);
-  const feedback = { position, currentPlayer: userId, status };
+  const users = room.map((e) => e.index);
+  const index = users.find((e) => e !== indexPlayer) as number;
+  const result = roomsDB.setAttack(gameId, index, pos);
+  const isSinglePlay = room.some((e) => !e.index);
 
-  return feedback;
-};
+  if (result === 'empty') return;
+  if (result === 'win') {
+    win(currentUser, users, gameId, indexPlayer, wss, ws, isSinglePlay);
+    return;
+  }
 
-const performAttack = (player: IRoomPlayers, position: { x: number; y: number }): TAttack => {
-  const ships = player.shipsCells;
-  if (!ships) return "empty";
+  if (isSinglePlay) {
+    singlePlayAttack(currentUser, pos, indexPlayer, result, room, gameId, ws);
+    return;
+  }
 
-  for (let i = 0; i < ships.length; i++) {
-    const shipCells = ships[i];
-    if (shipCells.has(JSON.stringify(position))) {
-      shipCells.delete(JSON.stringify(position));
-      if (shipCells.size === 0) {
-        ships.splice(i, 1);
-        markSurroundingCellsAsMiss(player, shipCells);
-        return "killed";
+  if (reAttack(currentUser, users, gameId, pos, index, wss)) return;
+  roomsDB.setAttackMap(gameId, indexPlayer, pos);
+
+  for (const i of wss.clients) {
+    const client = i as WebSocketWithId;
+    if (users.includes(client.id)) {
+      attack(pos, indexPlayer, result, ws);
+      turn(result === 'miss' ? index : indexPlayer, i);
+      if (result === 'miss') {
+        roomsDB.setTurn(gameId, client.id);
       }
-      return "shot";
     }
   }
-
-  return "miss";
-};
-
-const markSurroundingCellsAsMiss = (player: IRoomPlayers, shipCells: Set<string>): void => {
-  const { x, y } = JSON.parse(Array.from(shipCells)[0]);
-  const surroundingCells: string[] = [
-    JSON.stringify({ x: x - 1, y: y - 1 }),
-    JSON.stringify({ x: x - 1, y }),
-    JSON.stringify({ x: x - 1, y: y + 1 }),
-    JSON.stringify({ x, y: y - 1 }),
-    JSON.stringify({ x, y: y + 1 }),
-    JSON.stringify({ x: x + 1, y: y - 1 }),
-    JSON.stringify({ x: x + 1, y }),
-    JSON.stringify({ x: x + 1, y: y + 1 }),
-  ];
-
-  for (const cell of surroundingCells) {
-    if (!shipCells.has(cell)) {
-      player.attackMap?.add(cell);
-    }
-  }
-};
+}

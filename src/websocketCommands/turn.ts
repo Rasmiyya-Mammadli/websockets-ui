@@ -1,6 +1,6 @@
 import { roomsDB } from "../db/rooms/room";
 
-export const turn = (roomId: number): { currentPlayer: number } | undefined => {
+export const turnHandler = (roomId: number): { currentPlayer: number } | undefined => {
   const room = roomsDB.rooms.get(roomId);
   if (!room) return undefined;
 

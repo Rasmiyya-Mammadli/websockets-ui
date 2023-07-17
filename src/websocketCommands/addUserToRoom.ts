@@ -1,25 +1,34 @@
+import { Server as WebSocketServer } from 'ws';
 import { roomsDB } from '../db/rooms/room';
 import { IRoomPlayers } from '../db/rooms/roomModel';
-import { usersDB } from '../db/users/user';
-import { IUser } from '../db/users/userModel';
+import createGame from '../response/createGame';
+import updateRoom from '../response/updateRoom';
+import { WebSocketWithId } from '../server/webSocketserver';
 
-export const addUserToRoom = (
-  roomId: number,
-  userId: number
-): { success: boolean; roomData?: IRoomPlayers[] } => {
-  const room = roomsDB.rooms.get(roomId);
-  if (room) {
-    const userName = (usersDB.getPlayerByID(userId) as IUser).name;
-    const isAdded = room.find((user) => user.index === userId);
-    if (isAdded || room.length >= 2) {
-      return { success: false };
+export default function addUserToRoom (
+  data: string,
+  wss: WebSocketServer,
+  userId: number,
+): void {
+  const { indexRoom } = JSON.parse(data);
+
+  const currentUserRoom = roomsDB.userInRoom(userId);
+  if(currentUserRoom) roomsDB.removeRoom(currentUserRoom);
+
+  const success = roomsDB.addUserToRoom(indexRoom, userId);
+
+  if (!success) return;
+
+  const users = (roomsDB.rooms.get(indexRoom) as IRoomPlayers[]).map(
+    (e) => e.index,
+  );
+
+  for (const i of wss.clients) {
+    const client = i as WebSocketWithId;
+    if (users.includes(client.id)) {
+      createGame(indexRoom, client.id, i);
+    } else {
+      updateRoom(i);
     }
-    room.push({
-      name: userName,
-      index: userId,
-      isTurn: false,
-    });
-    return { success: true, roomData: room };
   }
-  return { success: false };
-};
+}

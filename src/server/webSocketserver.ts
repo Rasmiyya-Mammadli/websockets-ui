@@ -1,38 +1,63 @@
-import WebSocket from 'ws';
-import { handleRegCommand } from '../websocketCommands/reg';
-import { handleCreateRoomCommand } from '../websocketCommands/createRoom';
-import { handleAddUserToRoomCommand } from '../websocketCommands/addUserToRoom';
-// Import other WebSocket command handlers as needed
+import { httpServer } from './httpServer';
+import { WebSocket, Server as WebSocketServer } from 'ws';
+import handleRegCommand from '../websocketCommands/reg';
+import createRoomHandler  from '../websocketCommands/createRoom';
+import  addShipsHandler  from '../websocketCommands/addShips';
+import { attackHandler } from '../websocketCommands/attack';
+import singlePlayer from '../websocketCommands/singlePlayer';
+import closeGameHandler from '../websocketCommands/closeGame';
+import addUserToRoom from '../websocketCommands/addUserToRoom';
 
-export const startWebSocketServer = (port: number) => {
-  console.log(`Start WebSocket server on localhost:${port}`);
+export interface WebSocketWithId extends WebSocket {
+  id: number;
+}
 
-  const wss = new WebSocket.Server({ port });
+export default function startWebSocketServer () {
+  const wss: WebSocketServer = new WebSocket.Server({ server: httpServer });
 
-  wss.on('connection', (ws) => {
-    console.log('WebSocket connection established');
-
-    ws.on('message', (message) => {
-      console.log('Received message:', message);
-      const parsedMessage = JSON.parse(message);
-
-      switch (parsedMessage.type) {
-        case 'reg':
-          handleRegCommand(ws, parsedMessage.data);
-          break;
-        case 'create_room':
-          handleCreateRoomCommand(ws, parsedMessage.data);
-          break;
-        case 'add_user_to_room':
-          handleAddUserToRoomCommand(ws, parsedMessage.data);
-          break;
-        // Add cases for other WebSocket commands and their corresponding handlers
+  wss.on('connection', function connection(ws: WebSocketWithId) {
+    ws.id = Date.now();
+    ws.on('message', function incoming(message: string) {
+      try {
+        const mes = JSON.parse(message);
+        console.log(mes.type);
+        switch (mes.type) {
+          case 'reg':
+            handleRegCommand(mes.ws, mes.data, ws.id);
+            break;
+          case 'create_room':
+            createRoomHandler(wss, ws.id);
+            break;
+          case 'add_user_to_room':
+            addUserToRoom(mes.data, wss, ws.id);
+            break;
+          case 'add_ships':
+            addShipsHandler(mes.data, wss, ws);
+            break;
+          case 'attack':
+            attackHandler(mes.roomId, mes.userId, mes.x, mes.y);
+            break;
+          case 'random_attack':
+            attackHandler(mes.data, wss, ws, true);
+            break;
+          case 'single_play':
+            singlePlayer(wss, ws, ws.id);
+            break;
+          default:
+            console.log('Unknown message:', mes.type);
+            break;
+            
+        }
+      } catch (error) {
+        console.error('Error processing message:', error);
+        // Handle parsing or other errors
       }
     });
-
+  
     ws.on('close', () => {
+      closeGameHandler(wss, ws.id);
       console.log('WebSocket connection closed');
-      // Clean up any resources or handle disconnection logic here
+
     });
   });
-};
+}

@@ -1,62 +1,27 @@
-import WebSocket from 'ws';
+import { WebSocket } from 'ws';
+import { roomsDB } from '../db/rooms/room';
 import { usersDB } from '../db/users/user';
+import reg from '../response/reg';
+import updateRoom from '../response/updateRoom';
 
-export const handleRegCommand = (ws: WebSocket, data: any) => {
-  try {
-    const { name, password } = data;
-
-    // Check if the player name already exists in the database
-    const existingPlayer = usersDB.getPlayerByName(name);
-
-    if (existingPlayer) {
-      // Player already exists, return error response
-      const response = {
-        type: 'reg',
-        data: {
-          name: existingPlayer.name,
-          index: existingPlayer.currentID,
-          error: true,
-          errorText: 'Player already exists',
-        },
-        id: 0,
-      };
-
-      ws.send(JSON.stringify(response));
+export default function handleRegCommand(data: string, ws: WebSocket, userId: number) {
+  const { name, password } = JSON.parse(data);
+  const isSign = usersDB.getPlayerByName(name);
+  if (isSign) {
+    if (password === isSign.password) {
+      if (isSign.currentID > 0) {
+        reg(ws, name, -1, true, 'Player with this name already exists');
+      } else {
+        usersDB.updateId(name, userId);
+        reg(ws, name, userId);
+        if (roomsDB.rooms.size) updateRoom(ws);
+      }
     } else {
-      // Player doesn't exist, create a new player
-      const newPlayerId = usersDB.users.length;
-      usersDB.addPlayer(name, password, newPlayerId);
-
-      // Return success response
-      const response = {
-        type: 'reg',
-        data: {
-          name,
-          index: newPlayerId,
-          error: false,
-          errorText: '',
-        },
-        id: 0,
-      };
-
-      ws.send(JSON.stringify(response));
+      reg(ws, name, -1, true, 'Incorrect password');
     }
-  } catch (error) {
-    // Handle any errors that occur during registration
-    console.error('Error during player registration:', error);
-
-    // Return error response
-    const response = {
-      type: 'reg',
-      data: {
-        name: '',
-        index: -1,
-        error: true,
-        errorText: 'An error occurred during registration',
-      },
-      id: 0,
-    };
-
-    ws.send(JSON.stringify(response));
+  } else {
+    usersDB.addPlayer(name, password, userId);
+    reg(ws, name, userId);
+    if (roomsDB.rooms.size) updateRoom(ws);
   }
-};
+}

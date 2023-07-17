@@ -1,6 +1,4 @@
-import { IRoomPlayers } from "../rooms/roomModel";
-
-export interface IUser extends IRoomPlayers {
+export interface IUser {
   name: string;
   password: string;
   currentID: number;

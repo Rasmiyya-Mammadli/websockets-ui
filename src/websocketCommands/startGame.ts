@@ -1,13 +1,15 @@
 import { roomsDB } from "../db/rooms/room";
 import { IShip, IShipPos, TShip } from "../db/rooms/roomModel";
+import WebSocket from 'ws';
 
+export const startGameHandler = (ws: WebSocket, data: any) => {
+  const { roomId } = data;
 
-export const startGame = (roomId: number): { ships: IShip[]; currentPlayerIndex: number } | undefined => {
   const room = roomsDB.rooms.get(roomId);
-  if (!room) return undefined;
+  if (!room) return;
 
   const allShipsPlaced = room.every((user) => user.ships);
-  if (!allShipsPlaced) return undefined;
+  if (!allShipsPlaced) return;
 
   const currentPlayerIndex = room.findIndex((user) => user.isTurn);
   const currentPlayer = room[currentPlayerIndex];
@@ -33,7 +35,16 @@ export const startGame = (roomId: number): { ships: IShip[]; currentPlayerIndex:
     });
   }
 
-  return { ships, currentPlayerIndex };
+  const response = {
+    type: 'start_game',
+    data: {
+      ships,
+      currentPlayerIndex,
+    },
+    id: 0,
+  };
+
+  ws.send(JSON.stringify(response));
 };
 
 const getShipType = (length: number): TShip => {

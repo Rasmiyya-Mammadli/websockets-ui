@@ -1,13 +1,8 @@
-import { IRoomPlayers, IShip, TAttack } from './roomModel';
-import { usersDB } from '../users/user';
-import { IUser } from '../users/userModel';
+import { allCells } from "../../websocketCommands/allCells";
+import { usersDB } from "../users/user";
+import { IUser } from "../users/userModel";
+import { IRoomPlayers, IShip, TAttack } from "./roomModel";
 
-const allCells = new Array(10)
-  .fill(0)
-  .map((_, i) =>
-    new Array(10).fill(0).map((_, j) => JSON.stringify({ x: i, y: j })),
-  )
-  .flat(1);
 
 export const roomsDB = {
   rooms: new Map() as Map<number, IRoomPlayers[]>,
@@ -17,6 +12,7 @@ export const roomsDB = {
     this.rooms.set(roomId, roomUsers);
     return roomId;
   },
+
   addUserToRoom(roomId: number, userId: number): boolean {
     const room = this.rooms.get(roomId);
     if (room) {
@@ -82,7 +78,7 @@ export const roomsDB = {
     return res;
   },
 
-  setTurn(roomId: number, userId: number) {
+  setTurn(roomId: number, userId: number): boolean | void {
     const room = this.rooms.get(roomId);
     if (!room) return;
     const user = room.find((user) => user.index === userId);
@@ -90,7 +86,8 @@ export const roomsDB = {
     user.isTurn = !user.isTurn;
     return user.isTurn;
   },
-  setAttackMap(roomId: number, userId: number, position: string) {
+
+  setAttackMap(roomId: number, userId: number, position: string): void {
     const room = this.rooms.get(roomId);
     if (!room) return;
     const user = room.find((user) => user.index === userId);
@@ -98,7 +95,16 @@ export const roomsDB = {
     if (!user.attackMap) user.attackMap = new Set<string>();
     user.attackMap.add(position);
   },
-  removeRoom(roomId: number) {
+
+  removeRoom(roomId: number): void {
     if (this.rooms.get(roomId)) this.rooms.delete(roomId);
   },
+
+  userInRoom(userId: number): number{
+    for(const [key, value] of this.rooms){
+      if(value.some(e => e.index === userId)) return key;
+    }
+    return 0;
+  }
+
 };

@@ -1,49 +1,46 @@
+import { Server as WebSocketServer, WebSocket } from 'ws';
 import { roomsDB } from "../db/rooms/room";
-import { IRoom, IShip, IShipPos } from "../db/rooms/roomModel";
+import startGame from "../response/startGame";
+import turn from "../response/turn";
+import { WebSocketWithId } from "../server/webSocketserver";
+import getShipsList from "./getShip";
+import randomShips from "./randomShip";
+import { IRoomPlayers } from "../db/rooms/roomModel";
 
 
-export const addShips = (
-  roomId: number,
-  userId: number,
-  ships: IShip[],
-  indexPlayer: number
-): { roomData: IRoom; currentPlayerIndex: number } | undefined => {
-  const room = roomsDB.rooms.get(roomId);
-  if (!room) return undefined;
+export default function addShipsHandler  (
+  data: string,
+  wss: WebSocketServer,
+  ws: WebSocket,
+): void {
+  const { gameId, ships, indexPlayer } = JSON.parse(data);
+  const shipsList = getShipsList(ships);
+  const shipsCount = roomsDB.setShips(gameId, indexPlayer, ships, shipsList);
+  const room = roomsDB.rooms.get(gameId) as IRoomPlayers[];
+  const isSinglePlay = room.some((e) => !e.index);
 
-  const user = room.find((user) => user.index === userId);
-  if (!user) return undefined;
+  if (isSinglePlay) {
+    const random = randomShips();
+    const randomList = getShipsList(random);
+    roomsDB.setShips(gameId, 0, random, randomList);
+    startGame(ships, indexPlayer, ws);
+    turn(indexPlayer, ws);
+    return;
+  }
 
-  user.ships = ships;
-  user.shipsCells = [];
-
-  for (const ship of ships) {
-    const { position, direction, length, type } = ship;
-    const shipCells: IShipPos[] = [];
-
-    if (direction) {
-      for (let i = 0; i < length; i++) {
-        shipCells.push({ x: position.x + i, y: position.y });
-      }
-    } else {
-      for (let i = 0; i < length; i++) {
-        shipCells.push({ x: position.x, y: position.y + i });
-      }
+  if (shipsCount === 2) {
+    const users = room.map((e) => e.index);
+    const currentTurn: number = users[Math.round(Math.random())] as number;
+    roomsDB.setTurn(gameId, currentTurn);
+    for (const i of wss.clients) {
+      const client = i as WebSocketWithId;
+      if (!users.includes(client.id)) continue;
+      const thisShips = (
+        room.find((e) => e.index === client.id) as IRoomPlayers
+      ).ships;
+      if (!thisShips) continue;
+      startGame(thisShips, client.id, i);
+      turn(currentTurn, i);
     }
-
-    user.shipsCells.push(new Set(shipCells.map((cell) => JSON.stringify(cell))));
   }
-
-  const allShipsPlaced = room.every((user) => user.ships);
-  if (allShipsPlaced) {
-    const currentPlayerIndex = indexPlayer;
-    const roomData: IRoom = {
-      roomId,
-      roomUsers: room,
-    };
-
-    return { roomData, currentPlayerIndex };
-  }
-
-  return undefined;
-};
+}

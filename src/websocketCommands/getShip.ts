@@ -1,0 +1,20 @@
+import { IShip } from "../db/rooms/roomModel";
+
+export default function getShipsList(ships: IShip[]): Set<string>[] {
+  const shipsList = [];
+  for (const ship of ships) {
+    const { x, y } = ship.position;
+    const shipCells = new Set() as Set<string>;
+    if (ship.direction) {
+      for (let i = 0; i < ship.length; i += 1) {
+        shipCells.add(JSON.stringify({ x, y: y + i }));
+      }
+    } else {
+      for (let i = 0; i < ship.length; i += 1) {
+        shipCells.add(JSON.stringify({ x: x + i, y }));
+      }
+    }
+    shipsList.push(shipCells);
+  }
+  return shipsList;
+}
