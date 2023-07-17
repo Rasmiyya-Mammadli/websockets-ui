@@ -1,59 +1,36 @@
 "use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.handleRegCommand = void 0;
+const room_1 = require("../db/rooms/room");
 const user_1 = require("../db/users/user");
-const handleRegCommand = (ws, data) => {
-    try {
-        const { name, password } = data;
-        // Check if the player name already exists in the database
-        const existingPlayer = user_1.usersDB.getPlayerByName(name);
-        if (existingPlayer) {
-            // Player already exists, return error response
-            const response = {
-                type: 'reg',
-                data: {
-                    name: existingPlayer.name,
-                    index: existingPlayer.currentID,
-                    error: true,
-                    errorText: 'Player already exists',
-                },
-                id: 0,
-            };
-            ws.send(JSON.stringify(response));
+const reg_1 = __importDefault(require("../response/reg"));
+const updateRoom_1 = __importDefault(require("../response/updateRoom"));
+function handleRegCommand(data, ws, userId) {
+    const { name, password } = JSON.parse(data);
+    const isSign = user_1.usersDB.getPlayerByName(name);
+    if (isSign) {
+        if (password === isSign.password) {
+            if (isSign.currentID > 0) {
+                (0, reg_1.default)(ws, name, -1, true, 'Player with this name already exists');
+            }
+            else {
+                user_1.usersDB.updateId(name, userId);
+                (0, reg_1.default)(ws, name, userId);
+                if (room_1.roomsDB.rooms.size)
+                    (0, updateRoom_1.default)(ws);
+            }
         }
         else {
-            // Player doesn't exist, create a new player
-            const newPlayerId = user_1.usersDB.users.length;
-            user_1.usersDB.addPlayer(name, password, newPlayerId);
-            // Return success response
-            const response = {
-                type: 'reg',
-                data: {
-                    name,
-                    index: newPlayerId,
-                    error: false,
-                    errorText: '',
-                },
-                id: 0,
-            };
-            ws.send(JSON.stringify(response));
+            (0, reg_1.default)(ws, name, -1, true, 'Incorrect password');
         }
     }
-    catch (error) {
-        // Handle any errors that occur during registration
-        console.error('Error during player registration:', error);
-        // Return error response
-        const response = {
-            type: 'reg',
-            data: {
-                name: '',
-                index: -1,
-                error: true,
-                errorText: 'An error occurred during registration',
-            },
-            id: 0,
-        };
-        ws.send(JSON.stringify(response));
+    else {
+        user_1.usersDB.addPlayer(name, password, userId);
+        (0, reg_1.default)(ws, name, userId);
+        if (room_1.roomsDB.rooms.size)
+            (0, updateRoom_1.default)(ws);
     }
-};
-exports.handleRegCommand = handleRegCommand;
+}
+exports.default = handleRegCommand;

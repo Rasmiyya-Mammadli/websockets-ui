@@ -2,11 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.usersDB = void 0;
 const bot = {
-    name: 'ADAM',
+    name: 'BOT',
     password: '',
     currentID: 0,
-    index: 0,
-    isTurn: false
 };
 exports.usersDB = {
     users: [bot],

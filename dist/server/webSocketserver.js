@@ -3,57 +3,47 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.startWebSocketServer = void 0;
-const ws_1 = __importDefault(require("ws"));
-const reg_1 = require("../websocketCommands/reg");
-const createRoom_1 = require("../websocketCommands/createRoom");
-const startGame_1 = require("../websocketCommands/startGame");
-const addShips_1 = require("../websocketCommands/addShips");
+const httpServer_1 = require("./httpServer");
+const ws_1 = require("ws");
+const reg_1 = __importDefault(require("../websocketCommands/reg"));
+const createRoom_1 = __importDefault(require("../websocketCommands/createRoom"));
+const addShips_1 = __importDefault(require("../websocketCommands/addShips"));
 const attack_1 = require("../websocketCommands/attack");
-const turn_1 = require("../websocketCommands/turn");
-const finishGame_1 = require("../websocketCommands/finishGame");
-const updateWinners_1 = require("../websocketCommands/updateWinners");
-const updateRoom_1 = require("../websocketCommands/updateRoom");
-const startWebSocketServer = (port) => {
-    console.log(`Start WebSocket server on localhost:${port}`);
-    const wss = new ws_1.default.Server({ port });
-    wss.on('connection', (ws) => {
-        console.log('WebSocket connection established');
-        ws.on('message', (message) => {
-            console.log('Received message:', message);
+const singlePlayer_1 = __importDefault(require("../websocketCommands/singlePlayer"));
+const closeGame_1 = __importDefault(require("../websocketCommands/closeGame"));
+const addUserToRoom_1 = __importDefault(require("../websocketCommands/addUserToRoom"));
+function startWebSocketServer() {
+    const wss = new ws_1.WebSocket.Server({ server: httpServer_1.httpServer });
+    wss.on('connection', function connection(ws) {
+        ws.id = Date.now();
+        ws.on('message', function incoming(message) {
             try {
-                const messageString = message.toString();
-                const { type, data, id } = JSON.parse(messageString);
-                switch (type) {
+                const mes = JSON.parse(message);
+                console.log(mes.type);
+                switch (mes.type) {
                     case 'reg':
-                        (0, reg_1.handleRegCommand)(ws, data);
+                        (0, reg_1.default)(mes.ws, mes.data, ws.id);
                         break;
-                    case 'create_game':
-                        (0, createRoom_1.createRoomHandler)(ws, data);
+                    case 'create_room':
+                        (0, createRoom_1.default)(wss, ws.id);
                         break;
-                    case 'start_game':
-                        (0, startGame_1.startGameHandler)(ws, data.roomId);
+                    case 'add_user_to_room':
+                        (0, addUserToRoom_1.default)(mes.data, wss, ws.id);
                         break;
                     case 'add_ships':
-                        (0, addShips_1.addShipsHandler)(data.roomId, data.userId, data.ships, data.indexPlayer);
+                        (0, addShips_1.default)(mes.data, wss, ws);
                         break;
                     case 'attack':
-                        (0, attack_1.attackHandler)(data.roomId, data.userId, data.x, data.y);
+                        (0, attack_1.attackHandler)(mes.roomId, mes.userId, mes.x, mes.y);
                         break;
-                    case 'turn':
-                        (0, turn_1.turnHandler)(data.roomId);
+                    case 'random_attack':
+                        (0, attack_1.attackHandler)(mes.data, wss, ws, true);
                         break;
-                    case 'finish':
-                        (0, finishGame_1.finishGameHandler)(data.roomId);
-                        break;
-                    case 'update_winners':
-                        (0, updateWinners_1.updateWinnersHandler)();
-                        break;
-                    case 'update_room':
-                        (0, updateRoom_1.updateRoomHandler)();
+                    case 'single_play':
+                        (0, singlePlayer_1.default)(wss, ws, ws.id);
                         break;
                     default:
-                        // Handle unknown message types or invalid requests
+                        console.log('Unknown message:', mes.type);
                         break;
                 }
             }
@@ -63,9 +53,9 @@ const startWebSocketServer = (port) => {
             }
         });
         ws.on('close', () => {
+            (0, closeGame_1.default)(wss, ws.id);
             console.log('WebSocket connection closed');
-            // Clean up any resources or handle disconnection logic here
         });
     });
-};
-exports.startWebSocketServer = startWebSocketServer;
+}
+exports.default = startWebSocketServer;

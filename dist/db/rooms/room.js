@@ -1,11 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.roomsDB = void 0;
+const allCells_1 = require("../../websocketCommands/allCells");
 const user_1 = require("../users/user");
-const allCells = new Array(10)
-    .fill(0)
-    .map((_, i) => new Array(10).fill(0).map((_, j) => JSON.stringify({ x: i, y: j })))
-    .flat(1);
 exports.roomsDB = {
     rooms: new Map(),
     createRoom(user, bot) {
@@ -39,7 +36,7 @@ exports.roomsDB = {
             return 0;
         user.ships = ships;
         user.shipsCells = shipsCells;
-        user.attackVariations = new Set(allCells);
+        user.attackVariations = new Set(allCells_1.allCells);
         return room.reduce((s, c) => s + +!!c.ships, 0);
     },
     setAttack(roomId, userId, position) {
@@ -103,4 +100,11 @@ exports.roomsDB = {
         if (this.rooms.get(roomId))
             this.rooms.delete(roomId);
     },
+    userInRoom(userId) {
+        for (const [key, value] of this.rooms) {
+            if (value.some(e => e.index === userId))
+                return key;
+        }
+        return 0;
+    }
 };

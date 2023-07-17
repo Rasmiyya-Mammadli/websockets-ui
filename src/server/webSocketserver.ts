@@ -23,7 +23,7 @@ export default function startWebSocketServer () {
         console.log(mes.type);
         switch (mes.type) {
           case 'reg':
-            handleRegCommand(mes.ws, mes.data, ws.id);
+            handleRegCommand(mes.data, ws, ws.id);
             break;
           case 'create_room':
             createRoomHandler(wss, ws.id);
@@ -35,7 +35,7 @@ export default function startWebSocketServer () {
             addShipsHandler(mes.data, wss, ws);
             break;
           case 'attack':
-            attackHandler(mes.roomId, mes.userId, mes.x, mes.y);
+            attackHandler(mes.data, wss, ws);
             break;
           case 'random_attack':
             attackHandler(mes.data, wss, ws, true);
